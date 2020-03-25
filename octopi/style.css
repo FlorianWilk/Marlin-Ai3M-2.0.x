@@ -1,0 +1,21 @@
+QWidget { background-color: black; margin:0px;}
+QLabel { font-size: 24pt; }
+
+QPushButton { background-color: #1B5DC0;   height: 20px;width: 150px; font-weight: bold; text-transform: uppercase; font-size: 14pt; color: white; border: 0; border-style: outset; border-width: 0 0 2 2; border-color: black;} 
+QPushButton:hover { background-color: #4b8df0;}
+QPushButton:disabled { background-color: #303030; color: #909090; }
+
+QLabel,MyButton,QPushButton { font-family: Arial; color: white }
+
+
+QLabel#state { font-size: 38pt; background-color: rgb(27, 93, 192); font-weight: bold; margin-bottom: 30px; padding-bottom: 20px; padding-top: 20px;}
+
+QMyTemps {  min-height: 50px; max-height:50px;}
+QLabel#hotend_temp, QLabel#bed_temp { font-size: 38pt; color: white; height: 100%; qproperty-alignment: AlignCenter; background-color: rgb(10,10,10);}
+
+QLabel#titlebar { font-size: 12pt; background-color: black; color:rgb(128,128,128); font-weight: bold; padding-left: 20pt; margin: 20px 20px 20px 20px; }
+QLabel#time_left { font-size: 38pt; }
+QLabel#filename { font-size: 12pt; }
+QLabel#last_print { font-size: 16pt;}
+
+#idle_content QLabel,#print_content QLabel { padding-left: 20px; }
