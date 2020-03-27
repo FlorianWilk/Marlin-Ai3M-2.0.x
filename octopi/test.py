@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
+import traceback
+import json
+import threading
 import sys
 import signal
 import time
@@ -8,8 +10,11 @@ from octorest import OctoRest
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+import asyncio
+import websocket
 
 ask = False
+host="http://printerpi.local:5000"
 
 def convertMillis(millis):
     if millis is None:
@@ -38,6 +43,15 @@ class MyButton(QPushButton):
           self.setSizePolicy(QSizePolicy(QSizePolicy.Preferred,QSizePolicy.Expanding))
 #          self.setMinimumWidth(200)
           self.setAutoFillBackground(False)
+
+#  - PLA/PETG/TPU
+#  - Stop
+#  - Pause / Resume
+#  - HOME
+#  - Eject / Present
+#  - Filament Change -> Hot -> Retract -> Wait -> Extrude -> Cold
+#  - Show Bed Levels
+
 
 class MyMainButtons(QWidget):
 
@@ -131,8 +145,11 @@ class MyPrintContent(QWidget):
           
           self.state=MyBigLabel("Printing")
           self.state.setObjectName("state")
-
           layout.addWidget(self.state)
+
+          self.completion=MyBigLabel("")
+          self.completion.setObjectName("completion")
+          layout.addWidget(self.completion)
 
           self.time_left=MyBigLabel("no print time left yet")
           self.time_left.setObjectName("time_left")
@@ -148,9 +165,11 @@ class MyPrintContent(QWidget):
               timeleft=convertMillis(data['print_time_left'])+" left"
               filamenttotal=str(int(data['filament_length']/1000))+" m Filament"
               state="Printing - " + convertMillis(data['print_time'])
+              completion="{:.0f}% done".format(data["progress_completion"])
               self.state.setText(state)
               self.time_left.setText(timeleft)
               self.filament_total.setText(filamenttotal)
+              self.completion.setText(completion)
 
 
 
@@ -234,7 +253,7 @@ class MyContent(QWidget):
 class PIUI(object):
 
      def __init__(self):
-          self.octo_url="http://localhost:5000"
+          self.octo_url=host
           self.octo_key="0bd8c77e808a8e5e3c53ce13696317fa"
           self.client=None
           self.app=None
@@ -245,7 +264,86 @@ class PIUI(object):
           self.main_buttons=None
           self.layout_main=None
           self.client=self.init_client()
+
+          self.data={
+               "state_flags":{},
+               "state_text":"",
+               "bed_temps":"",
+               "tool_temps":"",
+               "est_print_time":"",
+               "filament_length":"",
+               "filament_volument":"",
+               "filename":"",
+               "progress_completion":"",
+               "print_time":"",
+               "print_time_left":"",
+
+               "temperatures": {"bed":0,"tool":0},
+          }
+
+
+          self.uri = "ws://printerpi.local:5000/sockjs/websocket"
+          self.ws = websocket.WebSocketApp(self.uri,
+                                        on_message=self.on_message,
+                                        on_error=self.on_error,
+                                        on_close=self.on_close)
+          self.wst = threading.Thread(target=self.ws.run_forever)
+          self.wst.daemon = True
+          self.wst.start()
+          #asyncio.get_event_loop().run_until_complete(self.webrecv())
+#          asyncio.get_event_loop().run_forever()
           self.build_ui()
+
+     def on_message(self,msgstr):
+          try:
+               msg=json.loads(msgstr)
+               #print("Message " + msg["current"])
+               if not "current" in msg:
+                    return
+               state=msg['current']['state']
+               self.data['state_flags']=state['flags']
+               self.data['state_text']=state['text']
+               d_temp=msg['current']['temps']
+               if len(d_temp)>0:
+                    d_temp=d_temp[0]
+                    d_temp_bed=d_temp['bed']
+                    self.data['bed_temps']= d_temp_bed['actual'], d_temp_bed['target']
+                    d_temp_tool=d_temp['tool0']
+                    self.data['tool_temps']=d_temp_tool['actual'],d_temp_tool['target']
+                    self.data['temperatures']={'bed':self.data['bed_temps'],'tool':self.data['tool_temps'] } 
+
+
+               # job infos
+               d_job=msg['current']['job']
+               self.data['est_print_time']=d_job['estimatedPrintTime']
+               if d_job and d_job['filament'] and d_job['filament']['tool0']:
+                    self.data['filament_length']=d_job['filament']['tool0']['length']
+                    self.data['filament_volume']=d_job['filament']['tool0']['volume']
+               self.data['filename']=d_job['file']['display']
+
+               self.data['progress_completion']=msg['current']['progress']['completion']
+               self.data['print_time']=msg['current']['progress']['printTime']
+               self.data['print_time_left']=msg['current']['progress']['printTimeLeft']
+               #print(job_info)        
+               #print(printer)
+               print(self.data)
+               self.update_ui()          
+          except Exception as ex:
+
+               traceback.print_exc()
+               print(ex)
+               print(str(ex)+str(sys.exc_info()[-1].tb_lineno))
+     def on_error(self,err):
+          print("Error " +err)
+     def on_close(self):
+          print("Close")
+
+     async def webrecv(self):
+          async with websockets.connect(self.uri) as websocket:
+               while True:
+                    greeting = await websocket.recv()
+                    print(f"< {greeting}")
+
 
      def init_client(self):
           while True:
@@ -287,6 +385,7 @@ class PIUI(object):
               progress_print_time=job_info['progress']['printTime']
               progress_print_time_left=job_info['progress']['printTimeLeft']
               #print(job_info)        
+              #print(printer)
               self.data={
                    "state_flags":state_flags,
                    "state_text":state_text,
@@ -304,8 +403,8 @@ class PIUI(object):
               }
               #print(self.data)
               self.update_ui()
-          except:
-              pass
+          except Exception as ex:
+               print(ex)
 
      def buttonclicked(self,i):
          try:
@@ -316,36 +415,27 @@ class PIUI(object):
              if i==2:
                 self.client.toggle()
              if i==3:
-                self.client.gcode("G28")
+                self.client.gcode("M109 S190\nG91\nG1 E-550 F4000\nM18 E")
+                input("Press Enter to continue...")
+                self.client.gcode("G1 E550 F2000\nM104 S0\nG90\nM18")
+                
+
+
+
+# Changer filament GCode
+# M109 S190
+# G91
+# G1 E-550 F4000
+# M18 E
+# Keypress
+# G1 E550 F2000
+# M104 S0
+# G90
+# M84
+
              if i==4:
-                self.client.gcode("""G21 ;metric values
-G90 ;absolute positioning
-G92 E0 ;zero the extruded length
-M82 ;set extruder to absolute mode
-M107 ;start with the fan off
-G28 X0 Y0 ;move X/Y to min endstops
-G28 Z0 ;move Z to min endstops
-M117 Printing...
-G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed
-G1 X0.1 Y20 Z0.3 F5000.0 ; Move to start position
-G1 X0.1 Y200.0 Z0.3 F1500.0 E15 ; Draw the first line
-G1 X0.4 Y200.0 Z0.3 F5000.0 ; Move to side a little
-G1 X0.4 Y20 Z0.3 F1500.0 E30 ; Draw the second line
-G92 E0 ; Reset Extruder
-G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed
-G1 X5 Y20 Z0.3 F5000.0 ; Move over to prevent blob squish
-M104 S0 ; turn off extruder
-M140 S0 ; turn off bed
-M84 ; disable motors
-M107
-G91 ;relative positioning
-G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure
-G1 Z+0.5 E-5 ;X-20 Y-20 F{speed_travel} ;move Z up a bit and retract filament even more
-G28 X0 ;Y0 ;move X/Y to min endstops, so the head is out of the way
-G1 Y180 F2000
-M84 ;steppers off
-G90
-""")
+                self.client.gcode("G28")
+                print(self.client.gcode("G29"))
              else:
                 print("Not implemented yet")
          except:
@@ -356,7 +446,7 @@ G90
           self.app.setOverrideCursor(Qt.BlankCursor)          
           app=self.app
           w = QWidget()
-          sshFile="/home/pi/qtpi/style.css"
+          sshFile="./style.css"
           with open(sshFile,"r") as fh:
                app.setStyleSheet(fh.read())
       
@@ -399,7 +489,7 @@ G90
 
           update_timer=QTimer()
           update_timer.timeout.connect(self.update)
-          update_timer.start(3000)
+          #update_timer.start(3000)
           sys.exit(app.exec_())
 
      def update_ui(self):

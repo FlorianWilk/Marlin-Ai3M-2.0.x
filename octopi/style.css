@@ -17,5 +17,5 @@ QLabel#titlebar { font-size: 12pt; background-color: black; color:rgb(128,128,12
 QLabel#time_left { font-size: 38pt; }
 QLabel#filename { font-size: 12pt; }
 QLabel#last_print { font-size: 16pt;}
-
+QLabel#completion { font-size: 38pt;}
 #idle_content QLabel,#print_content QLabel { padding-left: 20px; }
