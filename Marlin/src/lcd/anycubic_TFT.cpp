@@ -28,7 +28,7 @@
 #include "../core/macros.h"
 #include "../core/serial.h"
 #include "../gcode/queue.h"
-#include "../feature/emergency_parser.h"
+#include "../feature/e_parser.h"
 #include "../feature/pause.h"
 #include "../inc/MarlinConfig.h"
 #include "../libs/buzzer.h"
@@ -37,6 +37,7 @@
 #include "../module/stepper.h"
 #include "../module/temperature.h"
 #include "../sd/cardreader.h"
+
 
 #ifdef ANYCUBIC_TFT_MODEL
 #include "anycubic_TFT.h"
@@ -103,9 +104,9 @@ void AnycubicTFTClass::Setup() {
   #endif
 
   #if ENABLED(ANYCUBIC_FILAMENT_RUNOUT_SENSOR)
-    pinMode(FIL_RUNOUT_PIN,INPUT);
-    WRITE(FIL_RUNOUT_PIN,HIGH);
-    if(READ(FIL_RUNOUT_PIN)==true)
+    pinMode(19,INPUT);
+    WRITE(19,HIGH);
+    if(READ(19)==true)
     {
       ANYCUBIC_SERIAL_PROTOCOLPGM("J15"); //J15 FILAMENT LACK
       ANYCUBIC_SERIAL_ENTER();
@@ -729,7 +730,7 @@ void AnycubicTFTClass::StateHandler()
 void AnycubicTFTClass::FilamentRunout()
 {
   #if ENABLED(ANYCUBIC_FILAMENT_RUNOUT_SENSOR)
-    FilamentTestStatus=READ(FIL_RUNOUT_PIN)&0xff;
+    FilamentTestStatus=READ(19)&0xff;
 
     if(FilamentTestStatus>FilamentTestLastStatus) {
       // filament sensor pin changed, save current timestamp.
@@ -1164,8 +1165,8 @@ void AnycubicTFTClass::GetCommandFromTFT()
             if((!planner.movesplanned())&& (TFTstate!=ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate!=ANYCUBIC_TFT_STATE_SDOUTAGE))
             {
               if((current_position[Z_AXIS]<10)) queue.enqueue_now_P(PSTR("G1 Z10")); // RAISE Z AXIS
-              thermalManager.setTargetBed(50);
-              thermalManager.setTargetHotend(200, 0);
+              thermalManager.setTargetBed(PREHEAT_1_TEMP_BED);
+              thermalManager.setTargetHotend(PREHEAT_1_TEMP_HOTEND, 0);
               ANYCUBIC_SERIAL_SUCC_START;
               ANYCUBIC_SERIAL_ENTER();
             }
@@ -1174,8 +1175,8 @@ void AnycubicTFTClass::GetCommandFromTFT()
             if((!planner.movesplanned()) && (TFTstate!=ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate!=ANYCUBIC_TFT_STATE_SDOUTAGE))
             {
               if((current_position[Z_AXIS]<10)) queue.enqueue_now_P(PSTR("G1 Z10")); //RAISE Z AXIS
-              thermalManager.setTargetBed(80);
-              thermalManager.setTargetHotend(240, 0);
+              thermalManager.setTargetBed(PREHEAT_2_TEMP_BED);
+              thermalManager.setTargetHotend(PREHEAT_2_TEMP_HOTEND, 0);
 
               ANYCUBIC_SERIAL_SUCC_START;
               ANYCUBIC_SERIAL_ENTER();
@@ -1232,103 +1233,6 @@ void AnycubicTFTClass::GetCommandFromTFT()
             }
             ANYCUBIC_SERIAL_ENTER();
             break;
-          #ifndef BLTOUCH
-            case 29: // A29 Z PROBE OFFESET SET
-              break;
-
-            case 30: // A30 assist leveling, the original function was canceled
-              if(CodeSeen('S')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Entering level menue...");
-                #endif
-              } else if(CodeSeen('O')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Leveling started and movint to front left...");
-                #endif
-                queue.enqueue_now_P(PSTR("G91\nG1 Z10 F240\nG90\nG28\nG29\nG1 X20 Y20 F6000\nG1 Z0 F240"));
-              } else if(CodeSeen('T')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level checkpoint front right...");
-                #endif
-                queue.enqueue_now_P(PSTR("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240"));
-              } else if(CodeSeen('C')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level checkpoint back right...");
-                #endif
-                queue.enqueue_now_P(PSTR("G1 Z5 F240\nG1 X190 Y190 F6000\nG1 Z0 F240"));
-              } else if(CodeSeen('Q')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level checkpoint back right...");
-                #endif
-                queue.enqueue_now_P(PSTR("G1 Z5 F240\nG1 X190 Y20 F6000\nG1 Z0 F240"));
-              } else if(CodeSeen('H')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level check no heating...");
-                #endif
-                //queue.enqueue_now_P(PSTR("... TBD ..."));
-                ANYCUBIC_SERIAL_PROTOCOLPGM("J22"); // J22 Test print done
-                ANYCUBIC_SERIAL_ENTER();
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Serial Debug: Leveling print test done... J22");
-                #endif
-              } else if(CodeSeen('L')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level check heating...");
-                #endif
-                //queue.enqueue_now_P(PSTR("... TBD ..."));
-                ANYCUBIC_SERIAL_PROTOCOLPGM("J22"); // J22 Test print done
-                ANYCUBIC_SERIAL_ENTER();
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Serial Debug: Leveling print test with heating done... J22");
-                #endif
-              }
-              ANYCUBIC_SERIAL_SUCC_START;
-              ANYCUBIC_SERIAL_ENTER();
-
-              break;
-            case 31: // A31 zoffset
-              if((!planner.movesplanned())&&(TFTstate!=ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate!=ANYCUBIC_TFT_STATE_SDOUTAGE))
-              {
-                #if HAS_BED_PROBE
-                  char value[30];
-                  char *s_zoffset;
-                  //if((current_position[Z_AXIS]<10))
-                  //  z_offset_auto_test();
-
-                  if(CodeSeen('S')) {
-                    ANYCUBIC_SERIAL_PROTOCOLPGM("A9V ");
-                    ANYCUBIC_SERIAL_PROTOCOL(itostr3(int(zprobe_zoffset*100.00 + 0.5)));
-                    ANYCUBIC_SERIAL_ENTER();
-                    #ifdef ANYCUBIC_TFT_DEBUG
-                      SERIAL_ECHOPGM("TFT sending current z-probe offset data... <");
-                      SERIAL_ECHOPGM("A9V ");
-                      SERIAL_ECHO(itostr3(int(zprobe_zoffset*100.00 + 0.5)));
-                      SERIAL_ECHOLNPGM(">");
-                    #endif
-                  }
-                  if(CodeSeen('D'))
-                  {
-                    s_zoffset=ftostr32(float(CodeValue())/100.0);
-                    sprintf_P(value,PSTR("M851 Z"));
-                    strcat(value,s_zoffset);
-                    queue.enqueue_now_P(value); // Apply Z-Probe offset
-                    queue.enqueue_now_P(PSTR("M500")); // Save to EEPROM
-                  }
-                #endif
-              }
-              ANYCUBIC_SERIAL_ENTER();
-              break;
-            case 32: // A32 clean leveling beep flag
-              if(CodeSeen('S')) {
-                #ifdef ANYCUBIC_TFT_DEBUG
-                  SERIAL_ECHOLNPGM("TFT Level saving data...");
-                #endif
-                queue.enqueue_now_P(PSTR("M500\nM420 S1\nG1 Z10 F240\nG1 X0 Y0 F6000"));
-                ANYCUBIC_SERIAL_SUCC_START;
-                ANYCUBIC_SERIAL_ENTER();
-              }
-              break;
-            #endif
           case 33: // A33 get version info
             {
               ANYCUBIC_SERIAL_PROTOCOLPGM("J33 ");
