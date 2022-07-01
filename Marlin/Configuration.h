@@ -495,10 +495,12 @@
   // If you are using a pre-configured hotend then you can use one of the value sets by uncommenting it
 
   // WILK
- 
-  #define DEFAULT_Kp 15.13
-  #define DEFAULT_Ki 0.89
-  #define DEFAULT_Kd 64.44
+  #define DEFAULT_Kp 14.54
+  #define DEFAULT_Ki 0.77
+  #define DEFAULT_Kd 68.50
+  //#define DEFAULT_Kp 15.13
+  //#define DEFAULT_Ki 0.89
+  //#define DEFAULT_Kd 64.44
 
   // i3 Mega stock v5 hotend, 40W heater cartridge (3.6Ω @ 22°C)
   //#define  DEFAULT_Kp 15.94
@@ -541,9 +543,14 @@
   //#define MIN_BED_POWER 0
   //#define PID_BED_DEBUG // Sends debug data to the serial port.
    
-   #define DEFAULT_bedKp 79.03
-   #define DEFAULT_bedKi 15.56
-   #define DEFAULT_bedKd 267.58
+  // #define DEFAULT_bedKp 79.03
+ //  #define DEFAULT_bedKi 15.56
+//   #define DEFAULT_bedKd 267.58
+   
+
+#define DEFAULT_bedKp 70.15
+#define DEFAULT_bedKi 13.17
+#define DEFAULT_bedKd 249.05
 
   /* Stock
   #define DEFAULT_bedKp 62.83
@@ -743,7 +750,7 @@
  * Override with M203
  *                                      X, Y, Z, E0 [, E1[, E2...]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 500, 500, 6, 60 }
+#define DEFAULT_MAX_FEEDRATE          { 500, 500, 12, 60 }
 
 //#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
@@ -771,7 +778,7 @@
  *   M204 R    Retract Acceleration
  *   M204 T    Travel Acceleration
  */
-#define DEFAULT_ACCELERATION          1500    // X, Y, Z and E acceleration for printing moves
+#define DEFAULT_ACCELERATION          1000    // X, Y, Z and E acceleration for printing moves
 #define DEFAULT_RETRACT_ACCELERATION  3000    // E acceleration for retracts
 #define DEFAULT_TRAVEL_ACCELERATION   3000    // X, Y, Z acceleration for travel (non printing) moves
 
@@ -963,7 +970,7 @@
  *
  * Specify a Probe position as { X, Y, Z }
  */
-#define NOZZLE_TO_PROBE_OFFSET { -1, -24, -1.45 }
+#define NOZZLE_TO_PROBE_OFFSET { -1, -24, -1.50 }
 
 // Most probes should stay away from the edges of the bed, but
 // with NOZZLE_AS_PROBE this can be negative for a wider probing area.
@@ -1258,7 +1265,7 @@
 #if EITHER(AUTO_BED_LEVELING_LINEAR, AUTO_BED_LEVELING_BILINEAR)
 
   // Set the number of grid points per dimension.
-  #define GRID_MAX_POINTS_X 5
+  #define GRID_MAX_POINTS_X 3
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
 
   // Probe along the Y axis, advancing X after each column
@@ -1371,8 +1378,11 @@
 #endif
 
 // Homing speeds (mm/m)
-#define HOMING_FEEDRATE_XY (50*60)
-#define HOMING_FEEDRATE_Z  (4*60)
+//#define HOMING_FEEDRATE_XY (50*60)
+//#define HOMING_FEEDRATE_Z  (4*60)
+
+#define HOMING_FEEDRATE_XY (60*60)
+#define HOMING_FEEDRATE_Z  (8*60)
 
 // Validate that endstops are triggered on homing moves
 #define VALIDATE_HOMING_ENDSTOPS
